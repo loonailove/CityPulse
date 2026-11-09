@@ -61,12 +61,18 @@ def _cached(key: str, ttl: float, producer, fail_ttl: float = 300):
             hit = fresh()
         if hit:
             return hit[1]
+        old = _cache.get(key)
+        ts = time.time()
         try:
             value = producer()
-        except Exception:
+        except Exception as error:
+            log.warning("%s failed: %s", key, str(error)[:200])
             value = None
+            if old and old[1] is not None:  # keep serving the last good value, retry after fail_ttl
+                value = old[1]
+                ts = time.time() - ttl + fail_ttl
         with _cache_lock:
-            _cache[key] = (time.time(), value)
+            _cache[key] = (ts, value)
         return value
 
 

@@ -6,6 +6,7 @@ import argparse
 from dataclasses import asdict, dataclass
 from datetime import date
 import json
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -72,19 +73,29 @@ class WeatherForecast:
 
 
 def _get_json(url: str, params: dict[str, Any]) -> dict[str, Any]:
+    """GET + parse JSON. Retries timeouts, HTTP 429 and 5xx (shared hosting IPs get rate-limited)."""
     request = Request(
         f"{url}?{urlencode(params)}",
-        headers={"User-Agent": "CityPulse/0.1"},
+        headers={"User-Agent": "CityPulse/0.1", "Accept": "application/json"},
     )
-    try:
-        with urlopen(request, timeout=8) as response:
-            return json.load(response)
-    except HTTPError as error:
-        raise RuntimeError(f"Open-Meteo request failed with HTTP {error.code}") from error
-    except URLError as error:
-        raise RuntimeError(f"Could not reach Open-Meteo: {error.reason}") from error
-    except json.JSONDecodeError as error:
-        raise RuntimeError("Open-Meteo returned invalid JSON") from error
+    last: Exception | None = None
+    for attempt in range(3):
+        if attempt:
+            time.sleep(1.5 * attempt)
+        try:
+            with urlopen(request, timeout=15) as response:
+                return json.load(response)
+        except HTTPError as error:
+            last = RuntimeError(f"Open-Meteo request failed with HTTP {error.code} ({url.split('/')[2]})")
+            if error.code not in (429, 500, 502, 503, 504):
+                break
+        except (URLError, TimeoutError, OSError) as error:
+            reason = getattr(error, "reason", error)
+            last = RuntimeError(f"Could not reach Open-Meteo: {reason}")
+        except json.JSONDecodeError:
+            last = RuntimeError("Open-Meteo returned invalid JSON")
+            break
+    raise last or RuntimeError("Open-Meteo request failed")
 
 
 def geocode_city(city: str, country_code: str = "RO") -> dict[str, Any]:

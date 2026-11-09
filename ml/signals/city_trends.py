@@ -65,7 +65,7 @@ def fetch_city_trend(city_id: str, category: str) -> dict[str, Any]:
     keywords = KEYWORDS[category]
     stems = STEMS[category]
     with _gate:
-        trends = TrendReq(hl="ro-RO", tz=120, retries=2, backoff_factor=0.5, timeout=(5, 12))
+        trends = TrendReq(hl="ro-RO", tz=120, timeout=(5, 12))  # no retries=: pytrends builds urllib3 Retry(method_whitelist=...), removed in urllib3 2.x
         trends.build_payload(keywords, timeframe="today 1-m", geo=geo)
         series = trends.interest_over_time()
         related = trends.related_queries()
