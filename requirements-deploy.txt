@@ -9,3 +9,4 @@ anthropic
 beautifulsoup4
 imageio-ffmpeg
 pytrends
+urllib3<2y
