@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+Pillow
+python-dotenv
+httpx
+google-genai
+anthropic
+beautifulsoup4
+imageio-ffmpeg
+pytrends
